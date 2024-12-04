@@ -21,8 +21,12 @@ def Gaus_cost_prime(x_hat,psi,c,mu,sig):
 def gaussian(x,mu,sig):
     return np.sqrt(np.sqrt(2*np.pi)*sig**2)*np.exp(-(x - mu)**2/(4*sig**2))
 
-def lewp(H,x_hat,p_hat,mu,qu,psi,c=100):
-    J = psi.dag() * H * psi + (c/2)*(psi.dag()*x_hat*psi - mu)[0,0]**2 + (c/2)*(psi.dag()*(p_hat)*psi - qu)[0,0]**2 + (c/2)*(psi.dag()*psi - 1)[0,0]**2
+def lewp_cost(H,x_hat,p_hat,mu,qu,psi,c=100):
+    J = (psi.dag() * H * psi)[0,0] + (c/2)*(psi.dag()*x_hat*psi - mu)[0,0]**2 + (c/2)*(psi.dag()*(p_hat)*psi - qu)[0,0]**2 + (c/2)*(psi.dag()*psi - 1)[0,0]**2
+    return J
+
+def lewp_cost_prime(H,x_hat,p_hat,mu,qu,psi,c=100):
+    J = H * psi + c*(psi.dag()*x_hat*psi - mu)*x_hat*psi + c*(psi.dag()*(p_hat)*psi - qu)*p_hat*psi + c*(psi.dag()*psi - 1)*psi
     return J
 ################################################################################
  
@@ -32,6 +36,24 @@ def lewp(H,x_hat,p_hat,mu,qu,psi,c=100):
 
 
 def create_xhat(Q,R):
+    """
+    Create position operator in the coordinate basis. 
+    
+    x_hat = Z_1 + 2*Z_2 + ... + 2^{Q-1}*Z_Q
+
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+
+    Returns
+    -------
+    x_hat : Qobj
+        Position operator.
+
+    """
     d = 2*R/(2**Q) 
 
 
@@ -58,6 +80,21 @@ def create_xhat(Q,R):
 ###### Output: List of basis vectors |00...0>, |00...01> etc. #############
 
 def create_basis_vecs(Q):
+    """
+    Create set of basis vectors for given number of qubits.
+
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+
+    Returns
+    -------
+    base_vec_list : list of Qobj
+        List of basis vectors |00...0>, |00...01> etc.
+
+    """
+    
 
     H_sp = [2]*Q
     
@@ -80,6 +117,26 @@ def create_basis_vecs(Q):
 
 
 def create_Hamiltonian_HO(Q,R):
+    """
+    Creates truncated Hamiltonian for the harmonic oscillator for given number of qubits and truncation.
+
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+
+    Returns
+    -------
+    Ham_anho : Qobj
+        Hamiltonian.
+    x_hat : Qobj
+        Position operator.
+    p_hat : Qobj
+        Momentum operator.
+
+    """
     d = 2*R/(2**Q) 
 
     base_vecs = create_basis_vecs(Q)
@@ -104,7 +161,7 @@ def create_Hamiltonian_HO(Q,R):
     
     p2_hat = (2*Id - S)/(d**2) 
     
-    p_hat = sqrtm(p2_hat)
+    p_hat = p2_hat.sqrtm()
     
     Ham_ho = p2_hat/2 +  x_hat**2/2 
     
@@ -123,6 +180,27 @@ def create_Hamiltonian_HO(Q,R):
 
 
 def create_Hamiltonian_AnHO(Q,R):
+    """
+    Creates truncated Hamiltonian for the anharmonic oscillator for given number of qubits and truncation.
+
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+
+    Returns
+    -------
+    Ham_anho : Qobj
+        Hamiltonian.
+    x_hat : Qobj
+        Position operator.
+    p_hat : Qobj
+        Momentum operator.
+
+    """
+    
     d = 2*R/(2**Q) 
 
     base_vecs = create_basis_vecs(Q)
@@ -147,7 +225,7 @@ def create_Hamiltonian_AnHO(Q,R):
     
     p2_hat = (2*Id - S)/(d**2) 
     
-    p_hat = sqrtm(p2_hat)
+    p_hat = p2_hat.sqrtm()
     
     Ham_anho = p2_hat/2 +  x_hat**4/4 
     
@@ -161,12 +239,33 @@ def create_Hamiltonian_AnHO(Q,R):
 
 
 def OptimumR_HO(Q_max, R_max,Q_min=2,R_min=1):
+    """
+    
+    Plots the ground state energy vs R curve for Q = [Q_min,Q_max] and returns dataframe of optimum values for Harm. Osc.
+    Parameters
+    ----------
+    Q_max : int
+        Max number of qubits.
+    R_max : TYPE
+        Max value of spatial truncation.
+    Q_min : int, optional
+        Min number of qubits. The default is 2.
+    R_min : TYPE, optional
+        Min value of spatial truncation. The default is 1.
+
+    Returns
+    -------
+    df : Dataframe
+        Data frame showing the value of R for which deviation from groundstate is minimum.
+
+    """
     data = []
     x_list = np.arange(R_min,R_max,0.1)
     
     fig,ax = plt.subplots()
     for q in range(Q_min,Q_max+1):
-        gs_enelist = np.array([(abs(create_Hamiltonian_HO(q, r).eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)[0] - 0.5)) for r in x_list])
+        
+        gs_enelist = np.array([(abs(create_Hamiltonian_HO(q, r)[0].eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)[0] - 0.5)) for r in x_list])
         dat = [q,x_list[np.argmin(gs_enelist)]]
         data.append(dat)
         
@@ -195,15 +294,35 @@ def OptimumR_HO(Q_max, R_max,Q_min=2,R_min=1):
 
 
 
-def OptimumR_AnHO(Q_max, R_max):
+def OptimumR_AnHO(Q_max, R_max,Q_min=2,R_min=1):
+    """
+    
+    Plots the ground state energy vs R curve for Q = [Q_min,Q_max] and returns dataframe of optimum values for AHO.
+    Parameters
+    ----------
+    Q_max : int
+        Max number of qubits.
+    R_max : TYPE
+        Max value of spatial truncation.
+    Q_min : int, optional
+        Min number of qubits. The default is 2.
+    R_min : TYPE, optional
+        Min value of spatial truncation. The default is 1.
+
+    Returns
+    -------
+    df : Dataframe
+        Data frame showing the value of R for which deviation from groundstate and excited state energy resp. is minimum.
+
+    """
     data = []
-    x_list = np.arange(1,R_max,0.1)
+    x_list = np.arange(R_min,R_max,0.1)
     
     fig,ax = plt.subplots()
     fig1,ax1 = plt.subplots()
-    for q in range(2,Q_max+1):
-        gs_enelist = np.array([(abs(create_Hamiltonian_AnHO(q, r).eigenenergies(sparse = True, tol= 1e-06, eigvals = 2)[0] - 0.420804974)) for r in x_list])
-        exc_enelist = np.array([(abs(create_Hamiltonian_AnHO(q, r).eigenenergies(sparse = True, tol= 1e-06, eigvals = 2)[1] - 1.5079012411)) for r in x_list])
+    for q in range(Q_min,Q_max+1):
+        gs_enelist = np.array([(abs(create_Hamiltonian_AnHO(q, r)[0].eigenenergies(sparse = True, tol= 1e-06, eigvals = 2)[0] - 0.420804974)) for r in x_list])
+        exc_enelist = np.array([(abs(create_Hamiltonian_AnHO(q, r)[0].eigenenergies(sparse = True, tol= 1e-06, eigvals = 2)[1] - 1.5079012411)) for r in x_list])
         dat = [q,x_list[np.argmin(gs_enelist)],x_list[np.argmin(exc_enelist)]]
         data.append(dat)
         
@@ -240,9 +359,38 @@ def OptimumR_AnHO(Q_max, R_max):
 
 
 def Gaussian_wp(Q,R,c,mu,sig,lr,tole): 
+    """
+    
+    Create a gaussian wavepacket for given Q and R with mean mu and variance sig using gradient descent.
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+    c : float
+        Weight parameter in the cost function.
+    mu : float
+        Center of gaussian wp.
+    sig : float
+        Width of wp.
+    lr : float
+        Learning rate for gradient descent.
+    tole : float
+        Tolerance for the cost function.
+
+    Returns
+    -------
+    psi_f : Qobj
+        |psi> = psi_i |n_i> where |n_i> are bases states.
+
+    """
     it = 0
-        
+    
+    d = 2*R/(2**Q)    
     x_hat = create_xhat(Q, R)
+    
+    base_vecs = create_basis_vecs(Q)
     
     x_list = [((-(2**Q-1)/(2**Q))*R + d*n) for n in range(2**Q)]
     
@@ -275,6 +423,25 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole):
 ###### Output: |psi(t)> = exp(-iHt)|psi(0)>  (wavepacket) #############
  
 def evolve_state(Q,Ham, state, t):
+    """
+    Evolve a given state or with the given hamiltonian.
+
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    Ham : Qobj
+        Hamiltonian of the system under study.
+    state : Qobj
+        The state or wavepacket to be evolved.
+    t : float
+        Time t to evolve to.
+    Returns
+    -------
+    ev_state : Qobj
+        |psi(t)> = exp(-iHt)|psi(0)>.
+
+    """
     h_p = sp.sparse.csc_matrix(Ham.data)
     expiH = Qobj(sp.sparse.linalg.expm(-1j * h_p * t), dims = [list([2]*Q), list([2]*Q)], shape = (2**Q, 2**Q))
     ev_state = expiH * state
@@ -293,6 +460,32 @@ def evolve_state(Q,Ham, state, t):
 
 
 def expec_xhat(Q,R,H,x_hat,state, t):
+    """
+    Compute the expectation value of x and variance for a state evolved to time t.    
+    
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+    H : Qobj
+        Hamiltonian of the system under study.
+    x_hat : Qobj
+        Position operator.
+    state : Qobj
+        The state or wavepacket to be evolved.
+    t : float
+        Time t to evolve to.
+
+    Returns
+    -------
+    complex
+        <psi(t)|x_hat|psi(t)>.
+    complex
+        <psi(t)|(x_hat- <x_hat>)^2|psi(t)>.
+
+    """
     
     ev_state = evolve_state(Q, H, state, t)
     
@@ -310,6 +503,30 @@ def expec_xhat(Q,R,H,x_hat,state, t):
 
 
 def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
+    """
+    Plot the expectation value of x and variance for a state evolved to time t.
+
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+    state : Qobj
+        The state or wavepacket to be evolved.
+    model : str, optional
+        The model you want to study. "HO" = Harmonic Osc. "AnHO" = Anharmonic Osc. The default is "HO".
+    t_max : float, optional
+        Maximum time for evolution. The default is 10.
+    n_points : int, optional
+        Number of times between 0 and t_max. The default is 50.
+
+    Returns
+    -------
+    int
+        Plots the curve.
+
+    """
     if model == "HO":
         H,x_hat,p_hat = create_Hamiltonian_HO(Q, R)
     elif model == "AnHO":
@@ -335,22 +552,95 @@ def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
 
 
 ################################################################################
+######### Create a low energy wavepacket for given Q and R centered around mu in position space and qu in momentum space. ###########
+###### Input: Q = qubits. R = spatial truncation, c = norm weight, mu = center of wp, sig = width of wp   ############
+######          lr = learning rate, tole = tolerance to cost  ###########################
+###### Output: |psi> = psi_i |n_i>  (wavepacket) #############
+
+
+def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO"):
+    """
+    Create a low energy wavepacket for given Q and R centered around mu in position space and qu in momentum space.
+    
+    Parameters
+    ----------
+    Q : int
+        Number of qubits.
+    R : float
+        Spatial truncation parameter.
+    mu : float
+         Center of wp in position space.
+    qu : float
+         Center of wp in momentum space.
+    lr : float, optional
+        Learning rate for gradient descent. The default is 0.0001.
+    tole : float, optional
+        Learning rate for gradient descent. The default is 0.05.
+    c : float, optional
+        Weight parameter in the cost function.. The default is 100.
+   model : str, optional
+       The model you want to study. "HO" = Harmonic Osc. "AnHO" = Anharmonic Osc. The default is "HO".
+
+    Returns
+    -------
+   psi_f : Qobj
+       |psi> = psi_i |n_i> where |n_i> are bases states.
+
+    """
+    
+    if model == "HO":
+        H,x_hat,p_hat = create_Hamiltonian_HO(Q, R)
+    elif model == "AnHO":
+        H,x_hat,p_hat = create_Hamiltonian_AnHO(Q, R)
+    else:
+        print("Model undefined.")
+    
+    it = 0
+    
+    d = 2*R/(2**Q)    
+    
+    x_list = [((-(2**Q-1)/(2**Q))*R + d*n) for n in range(2**Q)]
+    
+    base_vecs = create_basis_vecs(Q)
+    
+    psi_i=0
+    g_list = np.array([gaussian(x, mu, 1) for x in x_list]) 
+    for i in range(len(g_list)): 
+        psi_i = psi_i +  g_list[i]*base_vecs[i]
+    
+    
+    J = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_i,c))
+    while J > tole:
+        psi_f = psi_i - lr*lewp_cost_prime(H, x_hat, p_hat, mu, qu, psi_i,c)
+        it = it+1
+        
+        J_f = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_f,c))
+        print(J)
+        psi_i = psi_f
+        
+    print(it)
+        
+    return psi_f
 
 
 
-
-
+################################################################################
 Q = [4]
 R = [5]
 mu = 1
-c = 100
+c = 10**4
 sig = 1/2 
-tole = 0.0005
+tole = 0.05
 lr = 0.0001
+1e-06* 10
 
+lewp = LowEnergy_wp(4, 5, 1, 0, lr= 1e-06, model= "HO")
+
+g_wp = Gaussian_wp(4, 5,c , mu, sig, lr, tole)
 
 df_ho = OptimumR_HO(8, 10)
 df_anho = OptimumR_AnHO(8,10)
+
 
 for q in Q:
     for r in R:
@@ -362,3 +652,7 @@ x_hat = create_xhat(4, 5)
 g_wp.dag()* x_hat * g_wp
 g_wp.dag()* x_hat**2 * g_wp 
 Gaussian_cost(x_hat, g_wp, 100, mu, sig)
+
+H = create_Hamiltonian_HO(4, 5)[0]
+g_wp.dag()* H * g_wp
+H
