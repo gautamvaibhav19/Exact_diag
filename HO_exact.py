@@ -558,7 +558,7 @@ def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
 ###### Output: |psi> = psi_i |n_i>  (wavepacket) #############
 
 
-def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO"):
+def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=0.01):
     """
     Create a low energy wavepacket for given Q and R centered around mu in position space and qu in momentum space.
     
@@ -578,8 +578,10 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO"):
         Learning rate for gradient descent. The default is 0.05.
     c : float, optional
         Weight parameter in the cost function.. The default is 100.
-   model : str, optional
+    model : str, optional
        The model you want to study. "HO" = Harmonic Osc. "AnHO" = Anharmonic Osc. The default is "HO".
+    beta : float, optional
+        Momentum coefficient. The default is 0.01.
 
     Returns
     -------
@@ -609,13 +611,18 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO"):
         psi_i = psi_i +  g_list[i]*base_vecs[i]
     
     
-    J = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_i,c))
-    while J > tole:
-        psi_f = psi_i - lr*lewp_cost_prime(H, x_hat, p_hat, mu, qu, psi_i,c)
+    J_i = 10
+    J_f = 0
+    v_i = 0
+    while abs(J_i-J_f) > tole:
+        J_i = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_i,c))
+        v_f = beta*v_i + (1-beta)*lewp_cost_prime(H, x_hat, p_hat, mu, qu, psi_i,c)
+        psi_f = psi_i - lr*v_f
         it = it+1
         
         J_f = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_f,c))
-        print(J)
+        v_i = v_f
+        print(J_f)
         psi_i = psi_f
         
     print(it)
@@ -628,15 +635,15 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO"):
 Q = [4]
 R = [5]
 mu = 1
-c = 10**4
+c = 10**2
 sig = 1/2 
-tole = 0.05
+tole = 1e-06
 lr = 0.0001
 1e-06* 10
 
-lewp = LowEnergy_wp(4, 5, 1, 0, lr= 1e-06, model= "HO")
+lewp = LowEnergy_wp(4, 5, 1, 0, lr= 1e-06,tole=tole, model= "HO",beta = 0.1)
 
-g_wp = Gaussian_wp(4, 5,c , mu, sig, lr, tole)
+g_wp = Gaussian_wp(4, 5,c , mu, sig, lr= 1e-04, tole= 0.05)
 
 df_ho = OptimumR_HO(8, 10)
 df_anho = OptimumR_AnHO(8,10)
@@ -653,6 +660,11 @@ g_wp.dag()* x_hat * g_wp
 g_wp.dag()* x_hat**2 * g_wp 
 Gaussian_cost(x_hat, g_wp, 100, mu, sig)
 
-H = create_Hamiltonian_HO(4, 5)[0]
+H, x_hat, p_hat = create_Hamiltonian_HO(4, 5)
 g_wp.dag()* H * g_wp
+g_wp.dag() * p_hat * g_wp
+lewp.dag() * H * lewp
+lewp.dag() * x_hat * lewp
+lewp.dag() * p_hat * lewp
+
 H
