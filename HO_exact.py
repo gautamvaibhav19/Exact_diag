@@ -5,6 +5,7 @@ import os
 import itertools
 import matplotlib.pyplot as plt
 import pandas as pd
+import time
 
 ################################################################################
 
@@ -622,7 +623,7 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
         
         J_f = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_f,c))
         v_i = v_f
-        print(J_f)
+        #print(J_f)
         psi_i = psi_f
         
     print(it)
@@ -633,15 +634,28 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
 
 ################################################################################
 Q = [4]
-R = [5]
+R = [10]
 mu = 1
 c = 10**2
 sig = 1/2 
 tole = 1e-06
 lr = 0.0001
 1e-06* 10
+lrate = [1e-05,1e-06,1e-06,1e-07,1e-07]
 
-lewp = LowEnergy_wp(4, 5, 1, 0, lr= 1e-06,tole=tole, model= "HO",beta = 0.1)
+lis = []
+H, x_hat, p_hat = create_Hamiltonian_HO(4, 10)
+for i in range(1,6):
+    co = 10**(i+1)
+    start = time.time()
+    lewp = LowEnergy_wp(4, 10, 1, 0, lr= lrate[i-1],tole=tole, c=co, model= "HO",beta = 0.1)
+    end = time.time()
+    l = [(lewp.dag() * H * lewp)[0,0],
+         (lewp.dag() * x_hat * lewp)[0,0],
+         (lewp.dag() * p_hat * lewp)[0,0],
+          end-start]
+    lis.append(l)
+
 
 g_wp = Gaussian_wp(4, 5,c , mu, sig, lr= 1e-04, tole= 0.05)
 
@@ -667,4 +681,4 @@ lewp.dag() * H * lewp
 lewp.dag() * x_hat * lewp
 lewp.dag() * p_hat * lewp
 
-H
+
