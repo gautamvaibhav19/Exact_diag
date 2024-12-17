@@ -59,8 +59,8 @@ def create_xhat(Q,R):
 
     base_vecs = create_basis_vecs(Q)
 
-    #n_a = [(d/2)*(-(Q-1) + i*2) for i in range(Q)]
-    n_a = [((-((Q-1)*R)/Q) + i*d) for i in range(Q)]
+    n_a = [(d/2)*(-(Q-1) + i*2) for i in range(Q)]
+    #n_a = [((-((Q-1)*R)/Q) + i*d) for i in range(Q)]
     su = 0
     for i in range(Q):
         su = su + (n_a[i]*base_vecs[i]*base_vecs[i].dag())
@@ -481,7 +481,7 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole):
     
     base_vecs = create_basis_vecs(Q)
     
-    x_list = [((-(2**Q-1)/(2**Q))*R + d*n) for n in range(2**Q)]
+    x_list = [(d/2)*(-(Q-1) + i*2) for i in range(Q)]
     
     psi_i=0
     g_list = np.array([gaussian(x, 0, 1) for x in x_list]) 
@@ -493,7 +493,8 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole):
     while J > tole:
         psi_f = psi_i - lr*Gaus_cost_prime(x_hat, psi_i, c, mu, sig)
         it = it+1
-        J = abs(Gaussian_cost(x_hat, psi_f, c, mu, sig)) 
+        J = abs(Gaussian_cost(x_hat, psi_f, c, mu, sig))
+        print(J)
         psi_i = psi_f
         
     print(it)
@@ -532,7 +533,7 @@ def evolve_state(Q,Ham, state, t):
 
     """
     h_p = sp.sparse.csc_matrix(Ham.data)
-    expiH = Qobj(sp.sparse.linalg.expm(-1j * h_p * t), dims = [list([2]*Q), list([2]*Q)], shape = (2**Q, 2**Q))
+    expiH = Qobj(sp.sparse.linalg.expm(-1j * h_p * t), dims = Ham.dims, shape = Ham.shape)
     ev_state = expiH * state
     
     return ev_state
@@ -720,20 +721,26 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
 
 
 ######################################################################################
-Q=6
-R=5
-
-ft_xhat = createFT_xhat(Q, R)
-ft_xhat
-
-[(i+0.5) for i in range(int(-Q/2), int(Q/2))]
-
-H, x_hat, p_hat = create_Hamiltonian_HO(4, 5)
 df = OptimumR_HO(16, 10)
 df_anho = OptimumR_AnHO(16,10)
 
-bv = create_basis_vecs(6)
-ft = FT_basis_vecs(6)
 
-for i in range(6):
-    print(ft[0].dag()*ft[i])
+Q = [4,8,16]
+R = [5,10]
+mu = 1
+c = 10**4
+sig = 1/2 
+tole = 1e-06
+lr = 0.0001
+
+for q in Q:
+    for r in R:
+        g_wp = Gaussian_wp(q, r,c , mu, sig, lr, tole)
+        plot_time_ev(q, r, g_wp,t_max = 10)
+
+g_wp = Gaussian_wp(16, 5,c , mu, sig, lr= 1e-05, tole= 0.05)
+plot_time_ev(16, 5, g_wp,t_max = 10)
+
+H,x_hat,p_hat = create_Hamiltonian_HO(4, 5)
+H
+H.shape
