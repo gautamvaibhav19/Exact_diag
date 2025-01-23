@@ -447,7 +447,7 @@ def OptimumR_AnHO(Q_max, R_max,Q_min=4,R_min=1):
 ###### Output: |psi> = psi_i |n_i>  (wavepacket) #############
 
 
-def Gaussian_wp(Q,R,c,mu,sig,lr,tole): 
+def Gaussian_wp(Q,R,c,mu,sig,lr,tole,beta = 0.01,tole_diff = 1e-08): 
     """
     
     Create a gaussian wavepacket for given Q and R with mean mu and variance sig using gradient descent.
@@ -467,7 +467,9 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole):
         Learning rate for gradient descent.
     tole : float
         Tolerance for the cost function.
-
+    beta : float, optional
+        Momentum coefficient. The default is 0.01.    
+        
     Returns
     -------
     psi_f : Qobj
@@ -484,17 +486,23 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole):
     x_list = [(d/2)*(-(Q-1) + i*2) for i in range(Q)]
     
     psi_i=0
-    g_list = np.array([gaussian(x, 0, 1) for x in x_list]) 
+    g_list = np.array([gaussian(x, mu, sig) for x in x_list]) 
     for i in range(len(g_list)): 
         psi_i = psi_i +  g_list[i]*base_vecs[i]
     
     
-    J = abs(Gaussian_cost(x_hat, psi_i, c, mu, sig))
-    while J > tole:
-        psi_f = psi_i - lr*Gaus_cost_prime(x_hat, psi_i, c, mu, sig)
+    J_i = 10
+    J_f = 1
+    v_i = 0
+    while abs(J_i - J_f) > tole_diff and abs(J_f) > tole:
+        J_i = abs(Gaussian_cost(x_hat, psi_i, c, mu, sig))
+        v_f = beta*v_i + (1-beta)*Gaus_cost_prime(x_hat, psi_i, c, mu, sig)
+        psi_f = psi_i - lr*v_f
+        #psi_f = psi_i - lr*Gaus_cost_prime(x_hat, psi_i, c, mu, sig)
         it = it+1
-        J = abs(Gaussian_cost(x_hat, psi_f, c, mu, sig))
-        print(J)
+        J_f = abs(Gaussian_cost(x_hat, psi_f, c, mu, sig))
+        v_i = v_f
+        print(J_f)
         psi_i = psi_f
         
     print(it)
@@ -580,7 +588,7 @@ def expec_xhat(Q,R,H,x_hat,state, t):
     ev_state = evolve_state(Q, H, state, t)
     
     r = ev_state.dag()*(x_hat)*ev_state
-    r1 = ev_state.dag()* (x_hat-r[0,0])**2 *ev_state
+    r1 = (ev_state.dag()* (x_hat)**2 *ev_state) - r[0,0]**2
     return r[0,0],r1[0,0]
 
 
@@ -635,7 +643,7 @@ def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
     ax.set_ylabel('Expectation values')
     ax.legend(loc='upper right')
     fig.suptitle(model + ", Q=" + str(Q) + ", R=" + str(R))
-    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\HO_Q"+str(Q)+"_R"+str(R)+".pdf",bbox_inches= 'tight',dpi=300 )
+    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Lewp_"+model+"_Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+".pdf",bbox_inches= 'tight',dpi=300 )
     plt.show()
 
     return 0    
@@ -691,7 +699,7 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
     
     d = 2*R/(2**Q)    
     
-    x_list = [((-(2**Q-1)/(2**Q))*R + d*n) for n in range(2**Q)]
+    x_list = [(d/2)*(-(Q-1) + i*2) for i in range(Q)]
     
     base_vecs = create_basis_vecs(Q)
     
@@ -712,7 +720,7 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
         
         J_f = abs(lewp_cost(H, x_hat, p_hat, mu, qu, psi_f,c))
         v_i = v_f
-        #print(J_f)
+        print(J_f)
         psi_i = psi_f
         
     print(it)
@@ -725,22 +733,23 @@ df = OptimumR_HO(16, 10)
 df_anho = OptimumR_AnHO(16,10)
 
 
-Q = [4,8,16]
+Q = [16,32,64,128]
 R = [5,10]
 mu = 1
 c = 10**4
-sig = 1/2 
-tole = 1e-06
-lr = 0.0001
+sig = 1/np.sqrt(2) 
+tole = 0.005
+lr = 1e-06
 
 for q in Q:
     for r in R:
         g_wp = Gaussian_wp(q, r,c , mu, sig, lr, tole)
         plot_time_ev(q, r, g_wp,t_max = 10)
 
-g_wp = Gaussian_wp(16, 5,c , mu, sig, lr= 1e-05, tole= 0.05)
-plot_time_ev(16, 5, g_wp,t_max = 10)
+g_wp = Gaussian_wp(64,10,c , mu, sig, lr= 1e-05, tole= 0.005,beta = 0.1)
+plot_time_ev(64, 10, g_wp,t_max = 10)
 
-H,x_hat,p_hat = create_Hamiltonian_HO(4, 5)
-H
-H.shape
+H,x_hat,p_hat = create_Hamiltonian_HO(16, 10)
+lewp = LowEnergy_wp(16, 10, 2, 0,tole = 1e-07, model = "AnHO")
+lewp.dag()* p_hat * lewp
+plot_time_ev(16, 10, lewp,model="AnHO")
