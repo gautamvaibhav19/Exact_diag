@@ -20,7 +20,7 @@ def Gaus_cost_prime(x_hat,psi,c,mu,sig):
      return J
  
 def gaussian(x,mu,sig):
-    return np.sqrt(np.sqrt(2*np.pi)*sig**2)*np.exp(-(x - mu)**2/(4*sig**2))
+    return (1/np.sqrt(np.sqrt(2*np.pi)*sig**2))*np.exp(-(x - mu)**2/(4*sig**2))
 
 def lewp_cost(H,x_hat,p_hat,mu,qu,psi,c=100):
     J = (psi.dag() * H * psi)[0,0] + (c/2)*(psi.dag()*x_hat*psi - mu)[0,0]**2 + (c/2)*(psi.dag()*(p_hat)*psi - qu)[0,0]**2 + (c/2)*(psi.dag()*psi - 1)[0,0]**2
@@ -474,9 +474,13 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole,beta = 0.01,tole_diff = 1e-08):
     -------
     psi_f : Qobj
         |psi> = psi_i |n_i> where |n_i> are bases states.
+    dat_str : str
+        Initial data information.
 
     """
     it = 0
+    
+    dat_str = ", Q=" +str(Q)+ ", R=" +str(R)+", GWP,"+r"$x_i = $"+str(mu)+r", $\sigma_i = $"+str(sig)
     
     d = 2*R/(Q)    
     x_hat = create_xhat(Q, R)
@@ -507,7 +511,7 @@ def Gaussian_wp(Q,R,c,mu,sig,lr,tole,beta = 0.01,tole_diff = 1e-08):
         
     print(it)
         
-    return psi_f
+    return psi_f,dat_str
 
 
 ################################################################################
@@ -600,7 +604,7 @@ def expec_xhat(Q,R,H,x_hat,state, t):
 
 
 
-def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
+def plot_time_ev(Q,R,state,dat_str,model = "HO",t_max = 10, n_points=50):
     """
     Plot the expectation value of x and variance for a state evolved to time t.
 
@@ -612,6 +616,8 @@ def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
         Spatial truncation parameter.
     state : Qobj
         The state or wavepacket to be evolved.
+    dat_str : str
+        Initial data information.
     model : str, optional
         The model you want to study. "HO" = Harmonic Osc. "AnHO" = Anharmonic Osc. The default is "HO".
     t_max : float, optional
@@ -631,6 +637,11 @@ def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
         H,x_hat,p_hat = create_Hamiltonian_AnHO(Q, R)
     else:
         print("Model undefined.")
+        
+    if "LeWP" in dat_str:
+        st = "LeWP"
+    else:
+        st = "GWP"
     
     times = np.linspace(0,t_max,n_points)
     result = [expec_xhat(Q, R, H, x_hat, state, t) for t in times]
@@ -642,8 +653,8 @@ def plot_time_ev(Q,R,state,model = "HO",t_max = 10, n_points=50):
     ax.set_xlabel('Time') 
     ax.set_ylabel('Expectation values')
     ax.legend(loc='upper right')
-    fig.suptitle(model + ", Q=" + str(Q) + ", R=" + str(R))
-    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Lewp_"+model+"_Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+".pdf",bbox_inches= 'tight',dpi=300 )
+    fig.suptitle(model + dat_str)
+    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\"+st+"_"+model+"_Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+".pdf",bbox_inches= 'tight',dpi=300 )
     plt.show()
 
     return 0    
@@ -683,8 +694,10 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
 
     Returns
     -------
-   psi_f : Qobj
+    psi_f : Qobj
        |psi> = psi_i |n_i> where |n_i> are bases states.
+    dat_str : str
+        Initial data information.
 
     """
     
@@ -695,9 +708,11 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
     else:
         print("Model undefined.")
     
+    dat_str = ", Q=" +str(Q)+ ", R=" +str(R)+", LeWP,"+r"$x_i = $"+str(mu)+r", $p_i = $"+str(qu)
+    
     it = 0
     
-    d = 2*R/(2**Q)    
+    d = 2*R/(Q)    
     
     x_list = [(d/2)*(-(Q-1) + i*2) for i in range(Q)]
     
@@ -725,7 +740,7 @@ def LowEnergy_wp(Q,R,mu,qu,lr = 0.0001,tole = 0.05, c = 100, model = "HO", beta=
         
     print(it)
         
-    return psi_f
+    return psi_f, dat_str
 
 
 ######################################################################################
@@ -733,7 +748,7 @@ df = OptimumR_HO(16, 10)
 df_anho = OptimumR_AnHO(16,10)
 
 
-Q = [16,32,64,128]
+Q = [16,32,64]
 R = [5,10]
 mu = 1
 c = 10**4
@@ -743,13 +758,15 @@ lr = 1e-06
 
 for q in Q:
     for r in R:
-        g_wp = Gaussian_wp(q, r,c , mu, sig, lr, tole)
-        plot_time_ev(q, r, g_wp,t_max = 10)
+        g_wp, dat_str= Gaussian_wp(q, r,c , mu, sig, lr, tole)
+        plot_time_ev(q, r, g_wp,dat_str,t_max = 10)
+        lewp, dat= LowEnergy_wp(q, r, 2, 0,tole = 1e-07, model = "AnHO")
+        plot_time_ev(q, r, lewp,dat,t_max = 10,model = "AnHO")
 
 g_wp = Gaussian_wp(64,10,c , mu, sig, lr= 1e-05, tole= 0.005,beta = 0.1)
 plot_time_ev(64, 10, g_wp,t_max = 10)
 
 H,x_hat,p_hat = create_Hamiltonian_HO(16, 10)
-lewp = LowEnergy_wp(16, 10, 2, 0,tole = 1e-07, model = "AnHO")
+lewp, dat= LowEnergy_wp(16, 10, 2, 0,tole = 1e-07, model = "AnHO")
 lewp.dag()* p_hat * lewp
 plot_time_ev(16, 10, lewp,model="AnHO")
