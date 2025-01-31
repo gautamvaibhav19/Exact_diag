@@ -20,7 +20,7 @@ def Gaus_cost_prime(x_hat,psi,c,mu,sig):
      return J
  
 def gaussian(x,mu,sig):
-    return np.sqrt(np.sqrt(2*np.pi)*sig**2)*np.exp(-(x - mu)**2/(4*sig**2))
+    return (1/np.sqrt(np.sqrt(2*np.pi)*sig**2))*np.exp(-(x - mu)**2/(4*sig**2))
 
 def lewp_cost(H,x_hat,p_hat,mu,qu,psi,c=100):
     J = (psi.dag() * H * psi)[0,0] + (c/2)*(psi.dag()*x_hat*psi - mu)[0,0]**2 + (c/2)*(psi.dag()*(p_hat)*psi - qu)[0,0]**2 + (c/2)*(psi.dag()*psi - 1)[0,0]**2
