@@ -433,12 +433,14 @@ def expec_xhat(Q,R,H,x_hat,y_hat,state, t):
     ev_state = evolve_state(Q, H, state, t)
     
     r = ev_state.dag()*(x_hat)*ev_state
-    r1 = ev_state.dag()* (y_hat) *ev_state 
-    return r[0,0],r1[0,0]
+    r1 = ev_state.dag()* (y_hat) *ev_state
+    r_sig = (ev_state.dag()* (x_hat)**2 *ev_state) - r[0,0]**2
+    r1_sig = (ev_state.dag()* (y_hat)**2 *ev_state) - r1[0,0]**2
+    return r[0,0],r1[0,0],r_sig[0,0],r1_sig[0,0]
 
 #################################################################################
 
-def plot_time_ev(Q,R,state,t_max = 10, n_points=50, coup= 1):
+def plot_time_ev(Q,R,state,ini_cond,t_max = 10, n_points=50, coup= 1):
     """
     Plot the expectation value of x and variance for a state evolved to time t.
 
@@ -450,10 +452,8 @@ def plot_time_ev(Q,R,state,t_max = 10, n_points=50, coup= 1):
         Spatial truncation parameter.
     state : Qobj
         The state or wavepacket to be evolved.
-    dat_str : str
+    ini_cond : list
         Initial data information.
-    model : str, optional
-        The model you want to study. "HO" = Harmonic Osc. "AnHO" = Anharmonic Osc. The default is "HO".
     t_max : float, optional
         Maximum time for evolution. The default is 10.
     n_points : int, optional
@@ -470,20 +470,23 @@ def plot_time_ev(Q,R,state,t_max = 10, n_points=50, coup= 1):
     H,pos_list,p_list = TwoBoson_ham(Q, R, coup= coup)
     x_hat, y_hat = pos_list
     px_hat, py_hat = p_list
-        
+    x,y,px,py = ini_cond    
+    sup_ini = "("+str(x)+","+str(y)+","+str(px)+","+str(py)+")"
     
     times = np.linspace(0,t_max,n_points)
     result = [expec_xhat(Q, R, H, x_hat,y_hat, state, t) for t in times]
     result = np.array(result)
     fig, ax = plt.subplots() 
     ax.plot(times, result[:,0], label = r"$\langle x \rangle$")
-    ax.plot(times, result[:,1], label = r"$\langle y \rangle$") 
+    ax.plot(times, result[:,1], label = r"$\langle y \rangle$")
+    ax.plot(times, result[:,2], label = r"$\langle (x - \langle x \rangle )^2 \rangle$")
+    ax.plot(times, result[:,3], label = r"$\langle (y - \langle y \rangle )^2 \rangle$")
     #ax.plot(result.times, result.expect[1]) 
     ax.set_xlabel('Time') 
     ax.set_ylabel('Expectation values')
     ax.legend(loc='upper right')
-    fig.suptitle("Q= "+str(Q)+ ", R= "+str(R)+ ", Coupling= "+str(coup))
-    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+"_c"+str(coup).translate({ord(c): None for c in '.'})+".pdf",bbox_inches= 'tight',dpi=300 )
+    fig.suptitle("Q= "+str(Q)+ ", R= "+str(R)+ ", Coupling= "+str(coup)+", ini="+sup_ini)
+    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+"_c"+str(coup).translate({ord(c): None for c in '.'})+"_x"+str(ini_cond[0])+"_y"+str(ini_cond[1]).translate({ord(c): None for c in '.'})+".pdf",bbox_inches= 'tight',dpi=300 )
     plt.show()
 
     return 0    
@@ -491,18 +494,28 @@ def plot_time_ev(Q,R,state,t_max = 10, n_points=50, coup= 1):
 
 ##################################################################################
 Q=4
-R=5
-cp_list = [0.1,0.2,0.3,0.5,1]
+R=8
+cp_list = [1]
+y_list = [1]
 
 OptimumR(16, 20)
 H.eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)
 
-for cp in cp_list:
-    H,pos_list,p_list = TwoBoson_ham(Q, R,coup = cp)
-    x_hat, y_hat = pos_list
-    px_hat, py_hat = p_list
-    lewp = LowEnergy_wp(4, 5, -2, 2, 0, 0,tole = 1e-06,c = 10000, coup= cp)
-    plot_time_ev(Q, R, lewp,t_max = 30,coup= cp)
+for y in y_list:
+    for cp in cp_list:
+        x=2
+        px=0
+        py=0
+        H,pos_list,p_list = TwoBoson_ham(Q, R,coup = cp)
+        x_hat, y_hat = pos_list
+        px_hat, py_hat = p_list
+        ini_cond = [x,y,px,py]
+        lewp = LowEnergy_wp(Q, R, x, y, px, py,tole = 1e-06,c = 10000, coup= cp)
+        plot_time_ev(Q, R, lewp,ini_cond,t_max = 300,n_points=300,coup= cp)
+        
+plot_time_ev(Q, R, lewp,ini_cond,t_max = 300,n_points=300,coup= cp)
 
+
+about()
 
 
