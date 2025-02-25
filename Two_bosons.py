@@ -200,7 +200,7 @@ def create_phat(Q,R):
 
 ################################################################################
 
-def TwoBoson_ham(Q,R,coup= 1):
+def TwoBoson_ham(Q,R,coup= 1,susy = False):
     """
     Creates truncated Hamiltonian for the two boson model for given number of qubits and truncation.
     Uses momentum basis.
@@ -212,7 +212,8 @@ def TwoBoson_ham(Q,R,coup= 1):
         Spatial truncation parameter.
     coup : float, optional
         Coupling. The default is 1.
-
+    susy : bool
+        Supersymmetric version or not. The default is False.
 
     Returns
     -------
@@ -236,12 +237,16 @@ def TwoBoson_ham(Q,R,coup= 1):
     py_hat = tensor(Id,mom)
     
     Ham = px_hat**2/2 + py_hat**2/2 + coup*(x_hat**2 * y_hat**2)/4
+    
+    if susy == True:
+        Ham = tensor(Ham,identity(2)) + tensor(x_hat,sigmax()) + tensor(y_hat,sigmaz())
+    
 
     return Ham,[x_hat,y_hat],[px_hat,py_hat]
 
 #################################################################################
 
-def OptimumR(Q_max, R_max,Q_min=4,R_min=1,coup= 1):
+def OptimumR(Q_max, R_max,Q_min=4,R_min=1,coup= 1,susy = False):
     """
     
     Plots the ground state energy vs R curve for Q = [Q_min,Q_max] and returns dataframe of optimum values for Two Boson model.
@@ -257,6 +262,8 @@ def OptimumR(Q_max, R_max,Q_min=4,R_min=1,coup= 1):
         Min value of spatial truncation. The default is 1.
     coup : float, optional
         Coupling. The default is 1.
+    susy : bool
+        Supersymmetric version or not. The default is False.
 
     Returns
     -------
@@ -270,7 +277,7 @@ def OptimumR(Q_max, R_max,Q_min=4,R_min=1,coup= 1):
     fig,ax = plt.subplots()
     for q in range(Q_min,Q_max+1,2):
         
-        gs_enelist = np.array([(abs(TwoBoson_ham(q, r)[0].eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)[0])) for r in x_list])
+        gs_enelist = np.array([(abs(TwoBoson_ham(q, r,coup,susy)[0].eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)[0])) for r in x_list])
         dat = [q,x_list[np.argmin(gs_enelist)]]
         data.append(dat)
         
@@ -280,7 +287,7 @@ def OptimumR(Q_max, R_max,Q_min=4,R_min=1,coup= 1):
         ax.set_xlabel(r"$R$", fontsize=18)
         ax.set_ylabel(r"$|E_{gs}|$", fontsize=18)
         fig.suptitle("Two Boson")
-        fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Two_bos_plots\\TwoBos_gs_alt.pdf",bbox_inches= 'tight',dpi=300 )
+        fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Two_bos_plots\\TwoBos_gs_susy.pdf",bbox_inches= 'tight',dpi=300 )
     
     plt.show()
     
@@ -291,7 +298,7 @@ def OptimumR(Q_max, R_max,Q_min=4,R_min=1,coup= 1):
     return df
 
 ##################################################################################
-def LowEnergy_wp(Q,R,mu_x,mu_y,qu_x,qu_y,lr = 1e-06,tole = 0.05, c = 100, beta=0.01, coup= 1):
+def LowEnergy_wp(Q,R,mu_x,mu_y,qu_x,qu_y,lr = 1e-06,tole = 0.05, c = 100, beta=0.01, coup= 1,susy = False):
     """
     Create a low energy wavepacket for given Q and R centered around mu in position space and qu in momentum space.
     
@@ -319,6 +326,8 @@ def LowEnergy_wp(Q,R,mu_x,mu_y,qu_x,qu_y,lr = 1e-06,tole = 0.05, c = 100, beta=0
         Momentum coefficient. The default is 0.01.
     coup : float, optional
         Coupling. The default is 1.
+    susy : bool
+        Supersymmetric version or not. The default is False.
 
     Returns
     -------
@@ -327,7 +336,7 @@ def LowEnergy_wp(Q,R,mu_x,mu_y,qu_x,qu_y,lr = 1e-06,tole = 0.05, c = 100, beta=0
 
     """
     
-    H,pos_list,p_list = TwoBoson_ham(Q, R, coup= coup)
+    H,pos_list,p_list = TwoBoson_ham(Q, R, coup= coup, susy = susy)
     x_hat, y_hat = pos_list
     px_hat, py_hat = p_list
     
@@ -351,6 +360,13 @@ def LowEnergy_wp(Q,R,mu_x,mu_y,qu_x,qu_y,lr = 1e-06,tole = 0.05, c = 100, beta=0
     
     psi_i = tensor(psix_i,psiy_i)
     
+    if susy == True:
+        psi_i = tensor(psi_i,create_basis_vecs(2)[0])
+        x_hat = tensor(x_hat,identity(2))
+        y_hat = tensor(y_hat,identity(2))
+        px_hat = tensor(px_hat,identity(2))
+        py_hat = tensor(py_hat,identity(2))
+        
     J_i = 10
     J_f = 0
     v_i = 0
@@ -440,7 +456,7 @@ def expec_xhat(Q,R,H,x_hat,y_hat,state, t):
 
 #################################################################################
 
-def plot_time_ev(Q,R,state,ini_cond,t_max = 10, n_points=50, coup= 1):
+def plot_time_ev(Q,R,state,ini_cond,t_max = 10, n_points=50, coup= 1,susy = False):
     """
     Plot the expectation value of x and variance for a state evolved to time t.
 
@@ -460,18 +476,29 @@ def plot_time_ev(Q,R,state,ini_cond,t_max = 10, n_points=50, coup= 1):
         Number of times between 0 and t_max. The default is 50.
     coup : float, optional
         Coupling. The default is 1.
-
+    susy : bool
+        Supersymmetric version or not. The default is False.    
+    
     Returns
     -------
     int
         Plots the curve.
 
     """
-    H,pos_list,p_list = TwoBoson_ham(Q, R, coup= coup)
+    H,pos_list,p_list = TwoBoson_ham(Q, R, coup= coup,susy= susy)
     x_hat, y_hat = pos_list
     px_hat, py_hat = p_list
     x,y,px,py = ini_cond    
-    sup_ini = "("+str(x)+","+str(y)+","+str(px)+","+str(py)+")"
+    if susy == True:
+        sup_ini = "("+str(x)+","+str(y)+","+str(px)+","+str(py)+"), susy"
+        fname = "Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+"_c"+str(coup).translate({ord(c): None for c in '.'})+"_x"+str(ini_cond[0])+"_y"+str(ini_cond[1]).translate({ord(c): None for c in '.'})+"_susy.pdf" 
+        x_hat = tensor(x_hat,identity(2))
+        y_hat = tensor(y_hat,identity(2))
+        px_hat = tensor(px_hat,identity(2))
+        py_hat = tensor(py_hat,identity(2))
+    else:
+        sup_ini = "("+str(x)+","+str(y)+","+str(px)+","+str(py)+")"
+        fname = "Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+"_c"+str(coup).translate({ord(c): None for c in '.'})+"_x"+str(ini_cond[0])+"_y"+str(ini_cond[1]).translate({ord(c): None for c in '.'})+".pdf"
     
     times = np.linspace(0,t_max,n_points)
     result = [expec_xhat(Q, R, H, x_hat,y_hat, state, t) for t in times]
@@ -486,19 +513,20 @@ def plot_time_ev(Q,R,state,ini_cond,t_max = 10, n_points=50, coup= 1):
     ax.set_ylabel('Expectation values')
     ax.legend(loc='upper right')
     fig.suptitle("Q= "+str(Q)+ ", R= "+str(R)+ ", Coupling= "+str(coup)+", ini="+sup_ini)
-    fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\Q"+str(Q)+"_R"+str(R).translate({ord(c): None for c in '.'})+"_c"+str(coup).translate({ord(c): None for c in '.'})+"_x"+str(ini_cond[0])+"_y"+str(ini_cond[1]).translate({ord(c): None for c in '.'})+".pdf",bbox_inches= 'tight',dpi=300 )
+    #fig.savefig("C:\\Users\\gauta\\OneDrive\\Desktop\\Codes\\Exact_Diag\\"+fname,bbox_inches= 'tight',dpi=300 )
     plt.show()
 
     return 0    
 
 
 ##################################################################################
-Q=4
+susy = False
+Q=8
 R=8
 cp_list = [1]
-y_list = [1]
+y_list = [0,0.1,1,2]
 
-OptimumR(16, 20)
+OptimumR(16, 20,susy=True)
 H.eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)
 
 for y in y_list:
@@ -506,16 +534,22 @@ for y in y_list:
         x=2
         px=0
         py=0
-        H,pos_list,p_list = TwoBoson_ham(Q, R,coup = cp)
+        H,pos_list,p_list = TwoBoson_ham(Q, R,coup = cp,susy= susy)
         x_hat, y_hat = pos_list
         px_hat, py_hat = p_list
         ini_cond = [x,y,px,py]
-        lewp = LowEnergy_wp(Q, R, x, y, px, py,tole = 1e-06,c = 10000, coup= cp)
-        plot_time_ev(Q, R, lewp,ini_cond,t_max = 300,n_points=300,coup= cp)
+        lewp = LowEnergy_wp(Q, R, x, y, px, py,tole = 1e-04,c = 10000, coup= cp,susy= susy)
+        plot_time_ev(Q, R, lewp,ini_cond,t_max = 300,n_points=300,coup= cp,susy= susy)
         
 plot_time_ev(Q, R, lewp,ini_cond,t_max = 300,n_points=300,coup= cp)
 
 
-about()
+np.sqrt(np.array([1,2]))
 
-
+H,pos_list,p_list = TwoBoson_ham(Q, R,coup = 1)
+tensor(pos_list[0],sigmax())
+Hs = tensor(H,identity(2)) + tensor(pos_list[0],sigmax()) + tensor(pos_list[1],sigmaz())  
+H.eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)
+Hs.eigenenergies(sparse = True, tol= 1e-06, eigvals = 1)
+base_vec_list = create_basis_vecs(2)
+base_vec_list[0]
